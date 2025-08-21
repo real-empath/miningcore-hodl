@@ -1,4 +1,4 @@
-namespace Miningcore.Blockchain.HOdl;
+namespace Miningcore.Blockchain.Hodlcoin;
 
 public class HodlcoinExtraNonceProvider : ExtraNonceProviderBase
 {
