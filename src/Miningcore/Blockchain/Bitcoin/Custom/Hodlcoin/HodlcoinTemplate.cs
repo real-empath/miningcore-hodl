@@ -1,4 +1,4 @@
-namespace Miningcore.Blockchain.Hodlcoin;
+namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin;
 
 public class HodlcoinTemplate : BitcoinTemplate
 {
