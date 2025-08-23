@@ -1,24 +1,24 @@
 using Autofac;
-using AutoMapper;
-using Miningcore.Blockchain.Bitcoin;
+using Miningcore.Blockchain.Hodlcoin;
 using Miningcore.Configuration;
 using Miningcore.Messaging;
 using Miningcore.Mining;
 using Miningcore.Notifications.Messages;
-using Miningcore.Persistence;
+using Miningcore.Persistence.Repositories;
 using Miningcore.Stratum;
 using Miningcore.Time;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System;
-using System.IO;
-using System.Reactive.Linq;
+using Newtonsoft.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using Microsoft.IO;
+using AutoMapper;
 
 namespace Miningcore.Blockchain.Hodlcoin
-    [CoinFamily(CoinFamily.Hodlcoin)]
+{
+    [CoinFamily(CoinFamily.Bitcoin)] // Hodlcoin is Bitcoin-family
     public class HodlcoinPool : PoolBase
     {
         public HodlcoinPool(
@@ -41,7 +41,7 @@ namespace Miningcore.Blockchain.Hodlcoin
 
         public override void Configure(PoolConfig pc, ClusterConfig cc)
         {
-            coin = pc.Template.As<HodlcoinTemplate>();  // use custom template
+            coin = pc.Template.As<HodlcoinTemplate>();  // <-- Hodlcoin template
             base.Configure(pc, cc);
         }
 
@@ -54,7 +54,7 @@ namespace Miningcore.Blockchain.Hodlcoin
 
             await manager.StartAsync(ct);
 
-            if (poolConfig.EnableInternalStratum == true)
+            if(poolConfig.EnableInternalStratum == true)
             {
                 disposables.Add(manager.Jobs
                     .Select(job => Observable.FromAsync(() =>
@@ -63,28 +63,21 @@ namespace Miningcore.Blockchain.Hodlcoin
                     .Concat()
                     .Subscribe());
 
-                // Kick off with initial blocktemplate
+                // start with initial blocktemplate
                 await manager.Jobs.Take(1).ToTask(ct);
             }
         }
 
         protected override WorkerContextBase CreateWorkerContext()
         {
-            return new BitcoinWorkerContext(); // works since Hodl uses Bitcoin-like protocol
+            return new BitcoinWorkerContext(); // Hodlcoin uses Bitcoin-like worker context
         }
 
-        // OPTIONAL but often needed: expose stats
-        public override double HashrateFromShares(double shares, double interval)
+        // Needed because PoolBase / StratumServer requires this
+        protected override async Task OnRequestAsync(StratumConnection connection,
+            Timestamped<JsonRpcRequest> tsRequest, CancellationToken ct)
         {
-            // Hodlcoin uses SHA256 shares (same as Bitcoin)
-            return base.HashrateFromShares(shares, interval);
-        }
-
-        // OPTIONAL — handle new jobs (if not already handled in PoolBase)
-        protected virtual Task OnNewJobAsync(HodlcoinJob job)
-        {
-            logger.Debug(() => $"Broadcasting new Hodlcoin job {job.JobId}");
-            return Task.CompletedTask;
+            await base.OnRequestAsync(connection, tsRequest, ct);
         }
     }
 }
