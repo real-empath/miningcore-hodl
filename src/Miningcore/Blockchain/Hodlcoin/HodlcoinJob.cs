@@ -1,134 +1,157 @@
 using System;
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Numerics;
 using Miningcore.Blockchain.Bitcoin;
+using Miningcore.Blockchain.Bitcoin.DaemonResponses;
 using Miningcore.Configuration;
+using Miningcore.Crypto;
 using Miningcore.Extensions;
-using Miningcore.Native;
 using Miningcore.Stratum;
 using Miningcore.Time;
 using Miningcore.Util;
-using Newtonsoft.Json.Linq;
 using NBitcoin;
 using NBitcoin.DataEncoders;
+using Newtonsoft.Json.Linq;
 
-namespace Miningcore.Blockchain.Hodlcoin
+namespace Miningcore.Blockchain.Hodlcoin;
+
+/// <summary>
+/// Bitcoin-like job with HODL’s 88-byte header (80-byte standard header + 4-byte birthdayA + 4-byte birthdayB).
+/// </summary>
+public class HodlcoinJob : BitcoinJob
 {
-    public class HodlcoinJob : BitcoinJob
+    // birthdays default to template extras if miner doesn’t send them on submit
+    private uint birthdayA;
+    private uint birthdayB;
+
+    public void SetBirthdaysFromTemplate(BlockTemplate tpl)
     {
-        private uint birthdayA;
-        private uint birthdayB;
-
-        public HodlcoinJob(
-            string id,
-            BlockTemplate blockTemplate,
-            JobParams jobParams,
-            Network network,
-            IHashAlgorithm coinbaseHasher,
-            IDestination poolAddressDestination,
-            bool isPoS,
-            ClusterConfig clusterConfig,
-            string extraNoncePlaceholder,
-            IClock clock) :
-            base(id, blockTemplate, jobParams, network, coinbaseHasher,
-                poolAddressDestination, isPoS, clusterConfig,
-                extraNoncePlaceholder, clock)
+        // Accept both string and uint JToken shapes if present
+        if (tpl.Extras is JObject extras)
         {
-            // initialize birthdays if present in template
-            SetBirthdaysFromTemplate(blockTemplate);
-        }
-
-        #region Birthdays from Template
-
-        public void SetBirthdaysFromTemplate(BlockTemplate tpl)
-        {
-            birthdayA = TryGetUintTemplateExtra(tpl, "birthdayA")
-                     ?? TryGetUintTemplateExtra(tpl, "nBirthdayA")
-                     ?? TryGetUintTemplateExtra(tpl, "birthday_a")
-                     ?? 0u;
-
-            birthdayB = TryGetUintTemplateExtra(tpl, "birthdayB")
-                     ?? TryGetUintTemplateExtra(tpl, "nBirthdayB")
-                     ?? TryGetUintTemplateExtra(tpl, "birthday_b")
-                     ?? 0u;
-        }
-
-        private static uint? TryGetUintTemplateExtra(BlockTemplate tpl, string key)
-        {
-            if (tpl.Extra is JObject jo &&
-                jo.TryGetValue(key, StringComparison.OrdinalIgnoreCase, out var tok))
+            if (extras.TryGetValue("nBirthdayA", out var a))
             {
-                if (tok.Type == JTokenType.Integer)
-                    return (uint)tok.Value<long>();
-
-                if (tok.Type == JTokenType.String &&
-                    uint.TryParse(tok.Value<string>(), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v))
-                    return v;
+                if (a.Type == JTokenType.String)
+                    birthdayA = Convert.ToUInt32((string) a, 16);
+                else if (a.Type == JTokenType.Integer)
+                    birthdayA = (uint) a;
             }
-
-            return null;
+            if (extras.TryGetValue("nBirthdayB", out var b))
+            {
+                if (b.Type == JTokenType.String)
+                    birthdayB = Convert.ToUInt32((string) b, 16);
+                else if (b.Type == JTokenType.Integer)
+                    birthdayB = (uint) b;
+            }
         }
+    }
 
-        #endregion
+    public void SetBirthdays(uint a, uint b)
+    {
+        birthdayA = a;
+        birthdayB = b;
+    }
 
-        #region Header serialization (88 bytes)
+    /// <summary>
+    /// Same as BitcoinJob.ProcessShareInternal except the header we hash/serialize is 88 bytes with birthdays appended.
+    /// </summary>
+    protected override (Share Share, string BlockHex) ProcessShareInternal(
+        StratumConnection worker,
+        string extraNonce2,
+        uint nTime,
+        uint nonce,
+        uint? versionBits)
+    {
+        var context = worker.ContextAs<BitcoinWorkerContext>();
 
-        // Hodlcoin header layout (little-endian fields):
-        // [version|prevhash|merkleroot|time|bits|nonce|birthdayA|birthdayB]
-        protected override byte[] SerializeHeader(Span<byte> coinbaseHash, uint nTime, uint nonce,
-            uint? versionMask, uint? versionBits)
+        // --- 1) coinbase & merkle ---
+        var coinbaseBytes = SerializeCoinbase(context.ExtraNonce1, extraNonce2);
+        Span<byte> coinbaseHash = stackalloc byte[32];
+        coinbaseHasher.Digest(coinbaseBytes, coinbaseHash);
+
+        var mt = GetMerkleRoot(coinbaseHash.ToNewArray());
+        var merkleRoot = mt;
+
+        // --- 2) version (handle version-rolling if present) ---
+        var version = BlockTemplate.Version;
+        if(versionBits.HasValue && context.VersionRollingMask.HasValue)
+            version = (int)((uint)version & ~context.VersionRollingMask.Value | (versionBits.Value & context.VersionRollingMask.Value));
+
+        // --- 3) build 88-byte header (LE fields) ---
+        // prevhash (internal little-endian bytes)
+        var prevHashBytes = uint256.Parse(BlockTemplate.PreviousBlockhash).ToBytes();
+
+        // compact bits (LE)
+        var bits = new Target(Encoders.Hex.DecodeData(BlockTemplate.Bits));
+        var bitsCompact = bits.ToCompact();
+
+        // standard 80-byte header
+        Span<byte> header = stackalloc byte[88];
+        var ofs = 0;
+
+        // version
+        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(ofs, 4), version); ofs += 4;
+
+        // prevhash (32 bytes, already internal order)
+        prevHashBytes.CopyTo(header.Slice(ofs, 32)); ofs += 32;
+
+        // merkle root (LE)
+        var merkleLe = merkleRoot.ToBytes(); // internal order
+        merkleLe.CopyTo(header.Slice(ofs, 32)); ofs += 32;
+
+        // nTime
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(ofs, 4), nTime); ofs += 4;
+
+        // nBits (compact)
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(ofs, 4), bitsCompact); ofs += 4;
+
+        // nonce
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(ofs, 4), nonce); ofs += 4;
+
+        // birthdays (HODL extension)
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(ofs, 4), birthdayA); ofs += 4;
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(ofs, 4), birthdayB); ofs += 4;
+
+        // --- 4) header hash & share difficulty ---
+        Span<byte> headerHash = stackalloc byte[32];
+        headerHasher.Digest(header, headerHash, nTime, BlockTemplate, coin, networkParams);
+
+        var shareMultiplier = coin.ShareMultiplier;
+        var shareDiff = (double) new BigRational(BitcoinConstants.Diff1, headerHash.ToBigInteger()) * shareMultiplier;
+
+        // current stratum difficulty (adjusted for multiplier when recorded on Share)
+        var stratumDifficulty = context.Difficulty;
+        var result = new Share
         {
-            var merkleRoot = mt.WithFirst(coinbaseHash.ToArray());   // byte[32]
+            BlockHeight = BlockTemplate.Height,
+            NetworkDifficulty = Difficulty
+        };
 
-            // version (with rolling mask if active)
-            var version = BlockTemplate.Version;
-            if (versionMask.HasValue && versionBits.HasValue)
-                version = (int)((version & ~versionMask.Value) | (versionBits.Value & versionMask.Value));
+        // check vs worker target
+        var stratumTarget = new BigRational(BitcoinConstants.Diff1, stratumDifficulty * shareMultiplier);
+        var headerValue = headerHash.ToBigInteger();
+        var meetsShareTarget = headerValue <= stratumTarget;
+        if (!meetsShareTarget)
+            throw new StratumException(StratumError.LowDifficultyShare, "low difficulty share");
 
-            // prev block (internal byte order)
-            var prevHash = uint256.Parse(BlockTemplate.PreviousBlockhash).ToBytes();
+        // --- 5) block-candidate? ---
+        var isBlockCandidate = headerValue <= blockTargetValue;
+        result.IsBlockCandidate = isBlockCandidate;
 
-            // bits (compact)
-            var bitsCompact = new Target(Encoders.Hex.DecodeData(BlockTemplate.Bits)).ToCompact();
+        // difficulty to book (same as upstream: record stratumDifficulty / shareMultiplier)
+        result.Difficulty = stratumDifficulty / shareMultiplier;
 
-            var header = new byte[88];
-            var span = header.AsSpan();
-
-            BinaryPrimitives.WriteInt32LittleEndian(span.Slice(0, 4), version);     //  0..3
-            prevHash.CopyTo(span.Slice(4, 32));                                     //  4..35
-            merkleRoot.CopyTo(span.Slice(36, 32));                                  // 36..67
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(68, 4), nTime);     // 68..71
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(72, 4), bitsCompact);// 72..75
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(76, 4), nonce);     // 76..79
-
-            // Hodlcoin-specific extras
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(80, 4), birthdayA); // 80..83
-            BinaryPrimitives.WriteUInt32LittleEndian(span.Slice(84, 4), birthdayB); // 84..87
-
-            return header;
-        }
-
-        #endregion
-
-        #region Share processing with optional birthdays
-
-        // Called by HodlcoinJobManager.SubmitShareAsync
-        public (Share Share, string BlockHex) ProcessShare(
-            StratumConnection worker,
-            string extraNonce2, string nTime, string nonce,
-            string? birthdayAHex = null, string? birthdayBHex = null)
+        // --- 6) if block, serialize block using our 88-byte header ---
+        string blockHex = null;
+        if(isBlockCandidate)
         {
-            // Optional miner-supplied birthdays (hex LE, <= 8 chars)
-            if (!string.IsNullOrEmpty(birthdayAHex) && birthdayAHex.Length <= 8)
-                birthdayA = Convert.ToUInt32(birthdayAHex, 16);
-
-            if (!string.IsNullOrEmpty(birthdayBHex) && birthdayBHex.Length <= 8)
-                birthdayB = Convert.ToUInt32(birthdayBHex, 16);
-
-            // Defer to base (difficulty check, candidate eval, coinbase, etc.)
-            return base.ProcessShare(worker, extraNonce2, nTime, nonce);
+            // Build full block with this exact header (+ coinbase/txs from template)
+            var coinbase = coinbaseBytes;
+            var blockBytes = SerializeBlock(header, coinbase);
+            blockHex = Convert.ToHexString(blockBytes);
         }
 
-        #endregion
+        return (result, blockHex);
     }
 }
