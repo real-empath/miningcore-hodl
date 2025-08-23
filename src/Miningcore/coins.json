@@ -1402,6 +1402,19 @@
         "explorerTxLink": "http://hfrco.in/blockcrawler/tx/{0}",
         "explorerAccountLink": "http://hfrco.in/blockcrawler/address/{0}"
     },
+    "hodlcoin":{
+        "name": "Hodlcoin",
+        "symbol": "HODL",
+        "family": "bitcoin",
+        "hash": "sha256d",
+        "coinbaseHasher": "sha256d",
+        "headerHasher": "sha256d",
+        "blockHasher": "sha256d",
+        "addressPrefix": [
+            "28"
+        ],
+        "pos": false
+    },    
     "indexchain": {
         "name": "IndexChain",
         "symbol": "IDX",
