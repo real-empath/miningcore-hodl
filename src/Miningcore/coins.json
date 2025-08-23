@@ -1405,7 +1405,7 @@
     "hodlcoin":{
         "name": "Hodlcoin",
         "symbol": "HODL",
-        "family": "Hodlcoin",
+        "family": "bitcoin",
         "hash": "sha256d",
         "coinbaseHasher": "sha256d",
         "headerHasher": "sha256d",
