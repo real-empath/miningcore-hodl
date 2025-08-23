@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
-using Miningcore.Blockchain.Bitcoin;
-using Miningcore.Blockchain.Bitcoin.DaemonResponses;
+using Miningcore.Blockchain.Hodlcoin;
+using Miningcore.Blockchain.Hodlcoin.DaemonResponses;
 using Miningcore.Configuration;
 using Miningcore.Crypto;
 using Miningcore.Extensions;
@@ -9,7 +9,7 @@ using Miningcore.Stratum;
 using NBitcoin;
 using Newtonsoft.Json.Linq;
 
-namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
+namespace Miningcore.Blockchain.Hodlcoin
 {
     /// <summary>
     /// Bitcoin-family job with 88-byte header (HODLcoin).

@@ -1,12 +1,12 @@
 using Autofac;
-using Miningcore.Blockchain.Bitcoin;
-using Miningcore.Blockchain.Bitcoin.DaemonResponses;
+using Miningcore.Blockchain.Hodlcoin;
+using Miningcore.Blockchain.Hodlcoin.DaemonResponses;
 using Miningcore.Configuration;
 using Miningcore.Mining;
 using Miningcore.Time;
 using Newtonsoft.Json.Linq;
 
-namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
+namespace Miningcore.Blockchain.Hodlcoin
 {
     public class HodlcoinJobManager : BitcoinJobManagerBase<HodlcoinJob>
     {
