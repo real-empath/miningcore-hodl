@@ -1,0 +1,34 @@
+{
+  "logging": {
+    "level": "info",
+    "enableConsoleLog": true
+  },
+  "pools": [
+    {
+      "id": "hodlcoin1",
+      "enabled": true,
+      "coin": "hodlcoin",
+      "daemon": {
+        "host": "127.0.0.1",
+        "port": 11989,
+        "user": "rpcuser",
+        "password": "rpcpassword"
+      },
+      "wallet": "HBunKyedvQkXDfErqgygdgAfjkotnL6CM9",
+      "rewardRecipients": [],
+      "ports": {
+        "3032": {
+          "listenAddress": "0.0.0.0",
+          "difficulty": 0.1,
+          "varDiff": {
+            "minDiff": 0.1,
+            "maxDiff": 1024,
+            "targetTime": 15,
+            "retargetTime": 90,
+            "variancePercent": 30
+          }
+        }
+      }
+    }
+  ]
+}
