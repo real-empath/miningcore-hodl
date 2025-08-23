@@ -9,7 +9,7 @@ using Miningcore.Time;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
+namespace Miningcore.Blockchain.Hodlcoin
 {
     public class HodlcoinJobManager : BitcoinJobManagerBase<HodlcoinJob>
     {
