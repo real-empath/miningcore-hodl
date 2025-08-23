@@ -15,7 +15,7 @@ using Newtonsoft.Json.Linq;
 using Contract = Miningcore.Contracts.Contract;
 using Transaction = NBitcoin.Transaction;
 
-namespace Miningcore.Blockchain.Hodlcoin;
+namespace Miningcore.Blockchain.Bitcoin;
 
 public class BitcoinJob
 {
