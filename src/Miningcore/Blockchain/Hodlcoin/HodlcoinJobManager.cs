@@ -9,7 +9,7 @@ using Miningcore.Time;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Miningcore.Blockchain.Hodlcoin
+namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
 {
     public class HodlcoinJobManager : BitcoinJobManagerBase<HodlcoinJob>
     {
@@ -21,10 +21,16 @@ namespace Miningcore.Blockchain.Hodlcoin
             base(ctx, clock, messageBus, extraNonceProvider)
         { }
 
-        // REQUIRED override — construct your HodlcoinJob
+        // REQUIRED override — construct HodlcoinJob
         protected override HodlcoinJob CreateJob()
         {
             return new HodlcoinJob();
+        }
+
+        // REQUIRED override — pass configs to base
+        public override void Configure(PoolConfig poolConfig, ClusterConfig clusterConfig)
+        {
+            base.Configure(poolConfig, clusterConfig);
         }
 
         protected override void SetupJobParamsForStratum(HodlcoinJob job)
@@ -49,7 +55,7 @@ namespace Miningcore.Blockchain.Hodlcoin
             return (job, force);
         }
 
-        // Optional override if you want explicit Stratum handler
+        // Hodlcoin Stratum share submission
         public async Task<object> SubmitShareAsync(StratumConnection worker,
             HodlcoinWorkerContext context,
             string jobId, string extraNonce2, string nTime, string nonce,
