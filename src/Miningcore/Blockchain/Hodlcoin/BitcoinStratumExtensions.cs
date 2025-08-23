@@ -1,4 +1,4 @@
-namespace Miningcore.Blockchain.Bitcoin;
+namespace Miningcore.Blockchain.Hodlcoin;
 
 /// <summary>
 /// The client uses the message to advertise its features and to request/allow some protocol extensions.

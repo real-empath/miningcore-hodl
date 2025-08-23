@@ -1,4 +1,4 @@
-namespace Miningcore.Blockchain.Bitcoin.DaemonResponses;
+namespace Miningcore.Blockchain.Hodlcoin.DaemonResponses;
 
 public class BlockchainInfo
 {
