@@ -1,21 +1,61 @@
 {
   "logging": {
     "level": "info",
-    "enableConsoleLog": true
+    "enableConsoleLog": true,
+    "enableConsoleColors": true,
+    "logFile": "logs/miningcore.log",
+    "logBaseDirectory": "logs",
+    "perPoolLogFile": true
   },
+
+  "banning": {
+    "enabled": true,
+    "time": 600,
+    "invalidPercent": 50,
+    "checkThreshold": 50
+  },
+
+  "notifications": {
+    "enabled": false
+  },
+
+  "persistence": {
+    "postgres": {
+      "host": "127.0.0.1",
+      "port": 5432,
+      "user": "miningcore",
+      "password": "password",
+      "database": "miningcore"
+    }
+  },
+
   "pools": [
     {
       "id": "hodlcoin1",
       "enabled": true,
       "coin": "hodlcoin",
+
       "daemon": {
         "host": "127.0.0.1",
         "port": 11989,
         "user": "rpcuser",
         "password": "rpcpassword"
       },
-      "wallet": "HBunKyedvQkXDfErqgygdgAfjkotnL6CM9",
+
+      "wallet": "YOUR_HODLCOIN_WALLET_ADDRESS",
+
       "rewardRecipients": [],
+
+      "paymentProcessing": {
+        "enabled": true,
+        "interval": 600,
+        "minimumPayment": 0.5,
+        "payoutScheme": "PPLNS",
+        "payoutSchemeConfig": {
+          "factor": 2.0
+        }
+      },
+
       "ports": {
         "3032": {
           "listenAddress": "0.0.0.0",
