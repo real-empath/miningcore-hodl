@@ -7,6 +7,8 @@ using Miningcore.Stratum;
 using Newtonsoft.Json.Linq;
 using NBitcoin;
 using NBitcoin.DataEncoders;
+using Miningcore.Persistence.Repositories;   // IStatsRepository lives here
+
 
 namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
 {
