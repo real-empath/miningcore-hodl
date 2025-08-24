@@ -1,7 +1,7 @@
 {
   "pools": [{
     "id": "hodl",
-    "coin": "hodlcoin",
+    "coin": "Hodlcoin",
     "address": "HBunKyedvQkXDfErqgygdgAfjkotnL6CM9",
     "enabled": true,
     "enableInternalStratum": true,
