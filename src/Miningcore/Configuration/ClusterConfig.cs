@@ -31,8 +31,6 @@ public enum CoinFamily
     [EnumMember(Value = "ergo")]
     Ergo,
 
-    [EnumMember(Value = "hodlcoin")] 
-    Hodlcoin,
 }
 
 public abstract partial class CoinTemplate
