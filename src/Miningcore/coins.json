@@ -1403,7 +1403,7 @@
         "explorerAccountLink": "http://hfrco.in/blockcrawler/address/{0}"
     },    
     {
-        "name": "hodlcoin",
+        "name": "Hodlcoin",
         "symbol": "HODL",
         "family": "bitcoin",
         "coinbaseHasher": "sha256d",
