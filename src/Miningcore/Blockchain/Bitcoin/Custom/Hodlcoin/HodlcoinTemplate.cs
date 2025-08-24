@@ -1,4 +1,4 @@
-using Miningcore.Blockchain.Bitcoin;
+using Miningcore.Blockchain.Bitcoin
 
 namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
 {
