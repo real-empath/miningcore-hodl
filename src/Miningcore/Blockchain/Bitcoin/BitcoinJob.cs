@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
-using Miningcore.Blockchain.Hodlcoin.Configuration;
-using Miningcore.Blockchain.Hodlcoin.DaemonResponses;
 using Miningcore.Configuration;
 using Miningcore.Crypto;
 using Miningcore.Extensions;
