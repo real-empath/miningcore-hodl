@@ -1401,20 +1401,20 @@
         "explorerBlockLink": "http://hfrco.in/blockcrawler/block/$height$",
         "explorerTxLink": "http://hfrco.in/blockcrawler/tx/{0}",
         "explorerAccountLink": "http://hfrco.in/blockcrawler/address/{0}"
-    },
-    "hodlcoin":{
-        "name": "Hodlcoin",
+    },    
+    {
+        "name": "hodlcoin",
         "symbol": "HODL",
         "family": "bitcoin",
-        "hash": "sha256d",
         "coinbaseHasher": "sha256d",
+        "shareHasher": "sha256d",
         "headerHasher": "sha256d",
-        "blockHasher": "sha256d",
-        "addressPrefix": [
-            "28"
-        ],
-        "pos": false
-    },    
+        "ports": { "11989": "rpc" },              // for your own reference; pool uses your config.json daemons
+        "paymentProcessing": false,
+        "addressRegex": "^[H][a-zA-Z0-9]{25,35}$",
+        "explorerBlockLinkTemplate": "...",
+        "explorerTransactionLinkTemplate": "..."
+    },
     "indexchain": {
         "name": "IndexChain",
         "symbol": "IDX",
