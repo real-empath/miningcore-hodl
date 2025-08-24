@@ -1,29 +1,65 @@
-using System;
+using Autofac;
+using Newtonsoft.Json;
 using Miningcore.Blockchain.Bitcoin;
-using Miningcore.Blockchain.Bitcoin.DaemonResponses;
+using Miningcore.Configuration;
+using Miningcore.Messaging;
+using Miningcore.Stratum;
+using Miningcore.Time;
+using Miningcore.Util;
+using System.IO;
+using System.Reactive.Linq;
 
 namespace Miningcore.Blockchain.Bitcoin.Custom.Hodlcoin
 {
-    public class HodlcoinJob : BitcoinJob
+    [CoinFamily(CoinFamily.Bitcoin)] // family still Bitcoin
+    public class HodlcoinPool : PoolBase
     {
-        public HodlcoinJob(BlockTemplate blockTemplate, string jobId, PoolConfig poolConfig, ClusterConfig clusterConfig,
-            IMasterClock clock, IDestinationAddressResolver addressResolver, IExtraNonceProvider extraNonceProvider) :
-            base(blockTemplate, jobId, poolConfig, clusterConfig, clock, addressResolver, extraNonceProvider)
+        public HodlcoinPool(IComponentContext ctx,
+            JsonSerializerSettings serializerSettings,
+            IConnectionFactory cf,
+            IStatsRepository statsRepo,
+            IMapper mapper,
+            IMasterClock clock,
+            IMessageBus messageBus,
+            RecyclableMemoryStreamManager rmsm,
+            NicehashService nicehashService) :
+            base(ctx, serializerSettings, cf, statsRepo, mapper, clock, messageBus, rmsm, nicehashService)
         {
         }
 
-        // Hodlcoin uses an 88-byte header instead of 80
-        public override void SerializeHeader(Span<byte> span, uint nTime, uint nonce, uint nBits, uint? version)
+        private HodlcoinJobManager manager;
+
+        public override void Configure(PoolConfig pc, ClusterConfig cc)
         {
-            if(span.Length < 88)
-                throw new ArgumentException("Span too small for Hodlcoin header");
+            base.Configure(pc, cc);
+        }
 
-            // Call base implementation for Bitcoin header serialization
-            base.SerializeHeader(span, nTime, nonce, nBits, version);
+        protected override async Task SetupJobManager(CancellationToken ct)
+        {
+            manager = ctx.Resolve<HodlcoinJobManager>(
+                new TypedParameter(typeof(IExtraNonceProvider), new BitcoinExtraNonceProvider(poolConfig.Id, clusterConfig.InstanceId)));
 
-            // Extend by 8 bytes for Hodlcoin-specific header fields
-            // (TODO: fill these bytes correctly according to Hodlcoin spec)
-            span.Slice(80, 8).Clear();
+            manager.Configure(poolConfig, clusterConfig);
+
+            await manager.StartAsync(ct);
+
+            if(poolConfig.EnableInternalStratum)
+            {
+                disposables.Add(manager.Jobs
+                    .Select(job => Observable.FromAsync(() =>
+                        Guard(() => OnNewJobAsync(job),
+                            ex => logger.Debug(() => $"{nameof(OnNewJobAsync)}: {ex.Message}"))))
+                    .Concat()
+                    .Subscribe());
+
+                // start with initial blocktemplate
+                await manager.Jobs.Take(1).ToTask(ct);
+            }
+        }
+
+        protected override WorkerContextBase CreateWorkerContext()
+        {
+            return new BitcoinWorkerContext();
         }
     }
 }
